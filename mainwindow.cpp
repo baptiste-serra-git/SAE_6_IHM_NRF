@@ -152,7 +152,6 @@ void MainWindow::on_EcrireConfigButton_clicked()
 // Bouton "Lire config" — demande la config au nœud NRF
 void MainWindow::on_LireConfigButton_clicked()
 {
-    {
     if (!m_serial->isOpen()) {
         qDebug() << "Port série non connecté";
         return;
