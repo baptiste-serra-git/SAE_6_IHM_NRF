@@ -152,22 +152,14 @@ void MainWindow::on_EcrireConfigButton_clicked()
 // Bouton "Lire config" — demande la config au nœud NRF
 void MainWindow::on_LireConfigButton_clicked()
 {
+    {
     if (!m_serial->isOpen()) {
         qDebug() << "Port série non connecté";
         return;
     }
 
-    QString nodeIDStr = ui->lineEdit->text();
-    bool ok;
-    uint16_t nodeID = nodeIDStr.toUShort(&ok, 16);
-    if (!ok) {
-        qDebug() << "NodeID invalide";
-        return;
-    }
-
     m_readData.clear();
 
-    // Construction de la trame (23 octets total)
     QByteArray trame;
 
     // 4 octets de start
@@ -179,11 +171,11 @@ void MainWindow::on_LireConfigButton_clicked()
     // 1 octet de commande : lire = 0x02
     trame.append((char)0x02);
 
-    // 2 octets de NodeID
-    trame.append((char)((nodeID >> 8) & 0xFF));
-    trame.append((char)(nodeID & 0xFF));
+    // 2 octets NodeID à zéro (on veut justement les récupérer)
+    trame.append((char)0x00);
+    trame.append((char)0x00);
 
-    // 16 octets KEY à zéro (non utilisés pour la lecture)
+    // 16 octets KEY à zéro (idem)
     for (int i = 0; i < 16; i++) {
         trame.append((char)0x00);
     }
@@ -192,6 +184,8 @@ void MainWindow::on_LireConfigButton_clicked()
     m_serial->waitForBytesWritten(3000);
 
     qDebug() << "Trame lire envoyée :" << trame.toHex(' ');
+    // La réponse arrivera dans handleReadyRead()
+        
 }
 
 // Réception et parsing de la trame de réponse
