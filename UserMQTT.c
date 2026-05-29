@@ -23,6 +23,7 @@
 /* Variables -----------------------------------------------------------------*/
 mqtt_client_t       *client                   = NULL;
 static SemaphoreHandle_t userMqttConnectSemaphore = NULL;
+static int           inpub_id                 = 0;
 
 /* ---------------------------------------------------------------------------*/
 
@@ -175,28 +176,78 @@ static void mqtt_connection_cb(mqtt_client_t *client, void *arg,
     /* MQTT_CONNECT_ACCEPTED (status == 0) : débloquer la tâche */
     if (userMqttConnectSemaphore)
         xSemaphoreGive(userMqttConnectSemaphore);
+
+    /* Enregistrer les callbacks pour les messages entrants */
+    mqtt_set_inpub_callback(client,
+                            mqtt_incoming_publish_cb,
+                            mqtt_incoming_data_cb,
+                            arg);
+
+    /* Souscription au topic de commande */
+    mqtt_subscribe(client, MQTT_SUB_TOPIC, 1, mqtt_sub_request_cb, arg);
 }
 
 /* ---------------------------------------------------------------------------*/
 
 /**
   * @brief  Callback topic d'un message entrant (subscribe).
+  *         Identifie le topic reçu et stocke un inpub_id pour le traitement
+  *         des données dans mqtt_incoming_data_cb.
   */
 void mqtt_incoming_publish_cb(void *arg, const char *topic, u32_t tot_len)
 {
-    (void)arg;
-    (void)topic;
-    (void)tot_len;
+    debugLogInfo("Incoming publish at topic %s with total length %u", topic, (unsigned int)tot_len);
+
+    /* Identifier le topic reçu */
+    if (strcmp(topic, MQTT_SUB_TOPIC) == 0)
+    {
+        inpub_id = 0;
+    }
+    else
+    {
+        inpub_id = 1;
+    }
 }
 
 /**
   * @brief  Callback données d'un message entrant.
+  *         Peut être appelé plusieurs fois si le message est fragmenté.
   *         flags & MQTT_DATA_FLAG_LAST → dernier fragment.
   */
 void mqtt_incoming_data_cb(void *arg, const u8_t *data, u16_t len, u8_t flags)
 {
-    (void)arg;
-    (void)data;
-    (void)len;
-    (void)flags;
+    uint8_t buff_data[128];
+    debugLogInfo("Incoming publish payload with length %d, flags %u", len, (unsigned int)flags);
+
+    if (flags & MQTT_DATA_FLAG_LAST)
+    {
+        /* Dernier fragment (ou message complet) */
+        if (inpub_id == 0)
+        {
+            /* Copie sécurisée avec zéro-terminaison */
+            if (len < sizeof(buff_data))
+            {
+                memcpy(buff_data, data, len);
+                buff_data[len] = '\0';
+                debugLogInfo("mqtt_incoming_data_cb: %s", (const char *)buff_data);
+            }
+        }
+        else
+        {
+            debugLogInfo("mqtt_incoming_data_cb: Ignoring payload...");
+        }
+    }
+    /* Si pas LAST : fragment intermédiaire, à gérer si messages longs */
+}
+
+/**
+  * @brief  Callback résultat de la souscription.
+  *         Appelé après réception du SUBACK du broker.
+  */
+static void mqtt_sub_request_cb(void *arg, err_t result)
+{
+    if (result == ERR_OK)
+        debugLogInfo("Subscribe OK sur %s", MQTT_SUB_TOPIC);
+    else
+        debugLogInfo("Subscribe FAIL: %d", result);
 }
