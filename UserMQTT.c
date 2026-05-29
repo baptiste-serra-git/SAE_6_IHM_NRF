@@ -1,3 +1,10 @@
+/**
+ * @file UserMQTT.c
+ *
+ * @date May 27, 2026
+ * @author SERRA
+ */
+
 /* USER CODE BEGIN Header */
 /**
   ******************************************************************************
@@ -12,64 +19,59 @@
 #include "mqtt.h"
 #include "UserMQTT.h"
 #include <string.h>
+#include "debugTerminal.h"
 
 /* Variables -----------------------------------------------------------------*/
 mqtt_client_t *client = NULL;
 
 /* ---------------------------------------------------------------------------*/
 
-/**
-  * @brief  Crée la tâche FreeRTOS MQTT.
-  * @retval  0 si OK, -1 si erreur création tâche
-  */
+
 int32_t UserMQTTInit(void)
 {
     if (xTaskCreate(UserMQTTTask, "UserMQTTTask", 512, 0, osPriorityNormal, 0) != pdPASS)
-        return -1;
+    {
+
+    	return -1;
+    }
+
 
     return 0;
 }
 
 /* ---------------------------------------------------------------------------*/
 
-/**
-  * @brief  Tâche FreeRTOS MQTT.
-  *         - Alloue le client
-  *         - Tente la connexion en boucle jusqu'au succès
-  *         - Publie un message toutes les secondes
-  */
+
 void UserMQTTTask(void *param)
 {
-    /* Laisser le temps à LwIP de s'initialiser */
+
     vTaskDelay(1000);
 
-    /* Allocation du client MQTT */
+    debugLogInfo("Init MQTT task");
+
     client = mqtt_client_new();
 
-    /* Boucle de connexion : on réessaie toutes les secondes tant que non connecté */
-    while (connect(client))
+
+    while (connect(client) != 0)
     {
+    	debugLogInfo("Waiting connection");
         vTaskDelay(1000);
     }
 
-    /* Boucle principale : publication périodique */
+
+    debugLogInfo("Connected !!!");
+
     while (1)
     {
         if (mqtt_client_is_connected(client))
         {
-            const char *payload = "hello from STM32";
-            mqtt_publish(client,
-                         MQTT_PUB_TOPIC,
-                         payload,
-                         strlen(payload),
-                         0,     /* QoS 0 */
-                         0,     /* retain */
-                         NULL,
-                         NULL);
+            const char *payload = "hello from E10";
+            mqtt_publish(client, MQTT_PUB_TOPIC, payload, strlen(payload), 0, 0, NULL, NULL);
         }
+
         else
         {
-            /* Reconnexion si lien perdu */
+
             connect(client);
         }
 
@@ -79,14 +81,8 @@ void UserMQTTTask(void *param)
 
 /* ---------------------------------------------------------------------------*/
 
-/**
-  * @brief  Connexion au broker MQTT.
-  *         Pattern issu de la doc officielle lwIP 2.1.x :
-  *         mqtt_client_connect(client, ip, port, cb, arg, &ci)
-  * @param  client : pointeur sur le client MQTT alloué
-  * @retval  0 si connexion lancée avec succès, -1 sinon
-  */
-void connect(mqtt_client_t *client)
+
+int connect(mqtt_client_t *client)
 {
     struct mqtt_connect_client_info_t ci;
     err_t err;
@@ -107,40 +103,40 @@ void connect(mqtt_client_t *client)
 
     if (err != ERR_OK)
     {
-        /* Echec immédiat (pas de route réseau, etc.) */
+        return -1;
     }
+
+    return 0;
 }
 
 /* ---------------------------------------------------------------------------*/
 
-/**
-  * @brief  Callback statut de connexion au broker.
-  *         Appelé de manière asynchrone par lwIP après mqtt_client_connect().
-  *         (doc : mqtt_connection_cb_t)
-  */
-void mqtt_connection_cb(mqtt_client_t *client, void *arg,
+
+static void mqtt_connection_cb(mqtt_client_t *client, void *arg,
                          mqtt_connection_status_t status)
 {
     (void)arg;
 
+    return; // A ENLEVER !!!
+
+
     if (status == MQTT_CONNECT_ACCEPTED)
     {
-        /* Connecté — on peut souscrire ici si besoin */
-        mqtt_set_inpub_callback(client,
+
+        /*mqtt_set_inpub_callback(client,
                                 mqtt_incoming_publish_cb,
                                 mqtt_incoming_data_cb,
                                 NULL);
 
-        mqtt_subscribe(client, MQTT_SUB_TOPIC, 1, NULL, NULL);
+        mqtt_subscribe(client, MQTT_SUB_TOPIC, 1, NULL, NULL);*/
     }
-    /* Si status != ACCEPTED : la tâche relancera connect() */
+    */
+
 }
 
 /* ---------------------------------------------------------------------------*/
 
-/**
-  * @brief  Callback topic d'un message entrant (subscribe).
-  */
+
 void mqtt_incoming_publish_cb(void *arg, const char *topic, u32_t tot_len)
 {
     (void)arg;
@@ -148,10 +144,7 @@ void mqtt_incoming_publish_cb(void *arg, const char *topic, u32_t tot_len)
     (void)tot_len;
 }
 
-/**
-  * @brief  Callback données d'un message entrant.
-  *         flags & MQTT_DATA_FLAG_LAST → dernier fragment.
-  */
+
 void mqtt_incoming_data_cb(void *arg, const u8_t *data, u16_t len, u8_t flags)
 {
     (void)arg;
