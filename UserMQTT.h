@@ -1,3 +1,10 @@
+/**
+ * @file UserMQTT.h
+ *
+ * @date May 27, 2026
+ * @author SERRA
+ */
+
 /* USER CODE BEGIN Header */
 /**
   ******************************************************************************
@@ -25,13 +32,13 @@ extern "C" {
 #define MQTT_BROKER_IP_0    10
 #define MQTT_BROKER_IP_1    38
 #define MQTT_BROKER_IP_2    1
-#define MQTT_BROKER_IP_3    5       /* IP du broker sur ton réseau */
+#define MQTT_BROKER_IP_3    5
 
 #define MQTT_Port           1883
-#define MQTT_CLIENT_ID      "E05"
+#define MQTT_CLIENT_ID      "E10"
 
-#define MQTT_PUB_TOPIC      "stm32/sae6"
-#define MQTT_SUB_TOPIC      "stm32/sae6/cmd"
+#define MQTT_PUB_TOPIC      "GEII/NRF/E10"
+#define MQTT_SUB_TOPIC      "GEII/NRF/E10/cmd"
 
 /* Exported variables --------------------------------------------------------*/
 extern mqtt_client_t *client;
@@ -39,8 +46,8 @@ extern mqtt_client_t *client;
 /* Exported functions --------------------------------------------------------*/
 int32_t  UserMQTTInit(void);
 void     UserMQTTTask(void *param);
-void     connect(mqtt_client_t *client);
-void     mqtt_connection_cb(mqtt_client_t *client, void *arg,
+int     connect(mqtt_client_t *client);
+static void     mqtt_connection_cb(mqtt_client_t *client, void *arg,
                              mqtt_connection_status_t status);
 
 #ifdef __cplusplus
